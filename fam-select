@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+require 'fileutils'
+require "highline/system_extensions"
+include HighLine::SystemExtensions
+
+@audio_path = "/media/ot/ISS/AUDIO"
+@noop = false
+
+def process
+  print "live loop? y/n"
+  c = get_character.chr
+  case c
+  when "y"
+    puts
+    Dir["./#{@base}.*"].each do |f|
+      FileUtils.mv f, f.sub(/-/,'_'), {:verbose => true, :noop => @noop}
+    end
+  when " "
+    play
+    process
+  end
+  puts
+end
+
+def play
+  `killall aplay`
+  Process.spawn("aplay -q '#{@wav}'")
+end
+
+Dir["*-*.{WAV,wav}"].each do |wav|
+  @wav = wav
+  @base = File.basename(wav,".*")
+  @path = @audio_path
+  puts @wav
+  play
+  process
+end

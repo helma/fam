@@ -1,0 +1,71 @@
+#!/usr/bin/env ruby
+require 'fileutils'
+require "highline/system_extensions"
+include HighLine::SystemExtensions
+
+@audio_path = "/media/ot/ISS/AUDIO"
+@noop = false
+
+def input selection, set_name=false
+  print "\n"+selection.collect{|s| "#{selection.index(s)+1}: #{s}"}.join(", ")+" "
+  c = get_character.chr
+  case c
+  when " "
+    play
+    input selection
+  else
+    index = c.to_i - 1
+    @selection = selection[index]
+    if @selection == "DELETE"
+      Dir["./#{@base}.*"].each do |f|
+        FileUtils.mkdir_p File.join(@audio_path,"DELETE"), {:verbose => true}
+        FileUtils.mv f, File.join(@audio_path,"DELETE"), {:verbose => true}
+      end
+    else
+      @path = File.join @path, @selection
+      @name += @selection[0] if set_name
+    end
+  end
+end
+
+def name
+  print "\nname (#{@base}): "
+  n = gets.chomp
+  case n
+  when " "
+    play
+    name
+  else
+    @name += '-'
+    n.empty? ? @name += @base : @name += n
+  end
+end
+
+def play
+  Process.spawn("aplay -q '#{@wav}'")
+end
+
+def file_path f,i
+  "#{File.join(@path, @name)}#{i}#{File.extname(f)}"
+end
+
+Dir["*.{WAV,wav}"].each do |wav|
+  @wav = wav
+  @base = File.basename(wav,".*")
+  @path = @audio_path
+  @name = ""
+  puts @wav
+  play
+  input ["LOOPS", "SINGLES", "DELETE"]
+  next if @selection == "DELETE"
+  input ["DRUMS", "BASS", "MUSIC", "FX", "ALL"], true
+  input ["ALL", "KICK", "SNARE_CLAP", "HH", "PERC"], true if @selection == "DRUMS"
+  name
+  Dir["./#{@base}.*"].each do |f|
+    FileUtils.mkdir_p @path, {:verbose => true}
+    i = 1
+    i += 1 while File.exists?(file_path f,i)
+    FileUtils.mv f, file_path(f,i), {:verbose => true, :noop => @noop}
+  end
+  puts
+end
